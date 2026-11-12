@@ -415,8 +415,37 @@ public static class Benchmarks
         var path = Path.Combine(dir, "results", "results.md");
         await File.WriteAllTextAsync(path, sb.ToString());
 
+        // У консоль - таблиця з вирівняними колонками (Markdown у консолі читається погано)
         Console.WriteLine();
-        Console.WriteLine(sb.ToString());
+        Console.WriteLine("=== Результати (мс) ===");
+        string[] header = ["Тест", "База", "N", "Середнє", "Медіана", "p95", "Мін", "Макс"];
+        var rows = Results.Select(r => new[]
+        {
+            r.Test, r.Db, r.N.ToString(ci),
+            r.Mean.ToString("F3", ci), r.Median.ToString("F3", ci), r.P95.ToString("F3", ci),
+            r.Min.ToString("F3", ci), r.Max.ToString("F3", ci),
+        }).ToList();
+        var widths = header.Select((h, c) => Math.Max(h.Length, rows.Max(row => row[c].Length))).ToArray();
+
+        string FormatRow(string[] cells) => string.Join("  ", cells.Select((cell, c) =>
+            c < 2 ? cell.PadRight(widths[c]) : cell.PadLeft(widths[c])));
+
+        Console.WriteLine(FormatRow(header));
+        Console.WriteLine(new string('-', widths.Sum() + 2 * (widths.Length - 1)));
+        string? previousTest = null;
+        foreach (var row in rows)
+        {
+            if (previousTest != null && row[0] != previousTest) Console.WriteLine();
+            Console.WriteLine(FormatRow(row));
+            previousTest = row[0];
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("=== Розмір даних ===");
+        Console.WriteLine($"PostgreSQL (8 таблиць з індексами):        {(pgSize / 1024.0 / 1024).ToString("F1", ci),8} МБ");
+        Console.WriteLine($"MongoDB orders, дані без стиснення:        {(mongoData / 1024.0 / 1024).ToString("F1", ci),8} МБ");
+        Console.WriteLine($"MongoDB orders на диску (стиснення+індекси): {(mongoDisk / 1024.0 / 1024).ToString("F1", ci),6} МБ");
+        Console.WriteLine();
         Console.WriteLine($"Звіт збережено: {path}");
     }
 

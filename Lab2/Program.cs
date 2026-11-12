@@ -8,6 +8,9 @@ using Npgsql;
 //   dotnet run -c Release -- bench     запустити тести швидкодії
 //   dotnet run -c Release -- all       обидва кроки підряд
 
+// Українські літери (і, ї, є) у консолі Windows без цього показуються як "?"
+Console.OutputEncoding = System.Text.Encoding.UTF8;
+
 var config = new ConfigurationBuilder()
     .AddUserSecrets<Program>()
     .Build();
