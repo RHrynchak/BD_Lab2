@@ -1,3 +1,20 @@
 <Solution>
+  <Folder Name="/Docs/">
+    <File Path="README.md" />
+    <File Path="results/results.md" />
+  </Folder>
+  <Folder Name="/mongo/">
+    <File Path="mongo/queries.js" />
+  </Folder>
+  <Folder Name="/neo4j/">
+    <File Path="neo4j/00_export.sql" />
+    <File Path="neo4j/01_load.cypher" />
+    <File Path="neo4j/02_queries.cypher" />
+  </Folder>
+  <Folder Name="/sql/">
+    <File Path="sql/00_lab1_schema.sql" />
+    <File Path="sql/01_seed.sql" />
+    <File Path="sql/02_queries.sql" />
+  </Folder>
   <Project Path="Lab2/Lab2.csproj" />
 </Solution>
