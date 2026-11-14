@@ -9,13 +9,10 @@ namespace Lab2;
 
 /// <summary>
 /// Тести швидкодії: однакові сценарії для PostgreSQL та MongoDB.
-///
 /// Методика (однакова для обох баз):
-///  * Обидві бази локальні, запит іде з цієї ж програми через офіційний драйвер
-///    (Npgsql / MongoDB.Driver), з пулом з'єднань - так само, як працював би вебзастосунок.
 ///  * Вимірюється повний час "запит -> відповідь прочитана": мережа (localhost),
 ///    виконання запиту в базі і читання результату в програму.
-///  * Перед вимірюванням - прогрів (warmup): кеш бази, пул з'єднань, JIT .NET.
+///  * Перед вимірюванням - прогрів бази.
 ///  * Параметри (id замовлень, клієнтів, місяці) генеруються випадково з фіксованим seed,
 ///    і обидві бази отримують ТІ САМІ параметри в тому ж порядку.
 ///  * Рахуємо середнє, медіану, 95-й перцентиль (p95), мінімум і максимум.
@@ -98,36 +95,36 @@ public static class Benchmarks
     // T2. Історія покупок клієнта: 10 останніх замовлень з позиціями.
     // Типова операція: особистий кабінет / картка лояльності.
     // ------------------------------------------------------------------
-    private const string HistorySql = """
-        WITH last_orders AS (
-            SELECT * FROM "Order"
-            WHERE "CustomerId" = @id
-            ORDER BY "OrderDate" DESC
-            LIMIT 10
-        )
-        SELECT o."Id", o."OrderDate", o."TotalAmount",
-               e."FirstName", e."LastName", d."Name", s."Name",
-               p."Id", p."Name", p."SKU", cat."Name",
-               oi."Quantity", oi."UnitPrice"
-        FROM last_orders o
-        JOIN "Employee" e   ON e."Id" = o."EmployeeId"
-        JOIN "Department" d ON d."Id" = e."DepartmentId"
-        JOIN "Store" s      ON s."Id" = d."StoreId"
-        JOIN "OrderItem" oi ON oi."OrderId" = o."Id"
-        JOIN "Product" p    ON p."Id" = oi."ProductId"
-        JOIN "Category" cat ON cat."Id" = p."CategoryId"
-        ORDER BY o."OrderDate" DESC
-        """;
-
     private static async Task TestCustomerHistoryAsync(NpgsqlDataSource pg, IMongoCollection<BsonDocument> orders,
         int maxCustomerId, string test, int warmup, int n)
     {
         var rnd = new Random(Seed + 1);
         var ids = Enumerable.Range(0, warmup + n).Select(_ => rnd.Next(1, maxCustomerId + 1)).ToArray();
 
+        const string sql = """
+            WITH last_orders AS (
+                SELECT * FROM "Order"
+                WHERE "CustomerId" = @id
+                ORDER BY "OrderDate" DESC
+                LIMIT 10
+            )
+            SELECT o."Id", o."OrderDate", o."TotalAmount",
+                   e."FirstName", e."LastName", d."Name", s."Name",
+                   p."Id", p."Name", p."SKU", cat."Name",
+                   oi."Quantity", oi."UnitPrice"
+            FROM last_orders o
+            JOIN "Employee" e   ON e."Id" = o."EmployeeId"
+            JOIN "Department" d ON d."Id" = e."DepartmentId"
+            JOIN "Store" s      ON s."Id" = d."StoreId"
+            JOIN "OrderItem" oi ON oi."OrderId" = o."Id"
+            JOIN "Product" p    ON p."Id" = oi."ProductId"
+            JOIN "Category" cat ON cat."Id" = p."CategoryId"
+            ORDER BY o."OrderDate" DESC
+            """;
+
         await MeasureAsync(test, "PostgreSQL", warmup, n, async i =>
         {
-            await using var cmd = pg.CreateCommand(HistorySql);
+            await using var cmd = pg.CreateCommand(sql);
             cmd.Parameters.AddWithValue("id", ids[i]);
             await ReadAllAsync(cmd);
         });
@@ -144,12 +141,12 @@ public static class Benchmarks
     // ------------------------------------------------------------------
     // T3. Створення нового замовлення (каса пробиває чек).
     // SQL: транзакція - INSERT в Order + INSERT кількох рядків в OrderItem.
-    // Mongo: один insertOne (документ вже містить усе).
+    // Mongo: один insertOne.
     // Тестуємо Mongo двічі:
     //   w:1          - налаштування за замовчуванням (підтвердження після запису в пам'ять)
-    //   w:1, j:true  - чекати запису в журнал на диску; це чесний аналог COMMIT у PostgreSQL
-    //                  (synchronous_commit = on чекає запису WAL на диск).
-    // Після тесту вставлені замовлення видаляються, щоб дані залишались однаковими.
+    //   w:1, j:true  - чекати запису в журнал на диску, це аналог COMMIT у PostgreSQL
+    //                  (synchronous_commit = on чекає запису на диск).
+    // Після тесту вставлені замовлення видаляються.
     // ------------------------------------------------------------------
     private static async Task TestInsertOrderAsync(NpgsqlDataSource pg, IMongoCollection<BsonDocument> orders,
         int maxOrderId, int maxCustomerId)
@@ -196,7 +193,6 @@ public static class Benchmarks
             insertOrder.Parameters.AddWithValue("t", total);
             var orderId = (int)(await insertOrder.ExecuteScalarAsync())!;
 
-            // Усі позиції - одним INSERT з кількома VALUES
             var sb = new StringBuilder("""INSERT INTO "OrderItem" ("OrderId", "ProductId", "Quantity", "UnitPrice") VALUES """);
             await using var insertItems = new NpgsqlCommand { Connection = conn, Transaction = tx };
             for (var k = 0; k < o.Items.Length; k++)
@@ -415,7 +411,7 @@ public static class Benchmarks
         var path = Path.Combine(dir, "results", "results.md");
         await File.WriteAllTextAsync(path, sb.ToString());
 
-        // У консоль - таблиця з вирівняними колонками (Markdown у консолі читається погано)
+        // У консоль - таблиця з вирівняними колонками
         Console.WriteLine();
         Console.WriteLine("=== Результати (мс) ===");
         string[] header = ["Тест", "База", "N", "Середнє", "Медіана", "p95", "Мін", "Макс"];

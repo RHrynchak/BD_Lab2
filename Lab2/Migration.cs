@@ -7,11 +7,10 @@ namespace Lab2;
 
 /// <summary>
 /// Переносить замовлення з PostgreSQL у MongoDB.
-///
 /// Одне замовлення в SQL займає рядки у 8 таблицях:
 ///   Order + OrderItem + Product + Category + Customer + Employee + Department + Store.
 /// У Mongo це один документ: позиції вкладені масивом, а клієнт, касир, відділ і назви
-/// товарів зберігаються як "знімок" на момент покупки (як надруковано в чеку).
+/// товарів зберігаються як знімок на момент покупки (як надруковано в чеку).
 /// </summary>
 public static class Migration
 {

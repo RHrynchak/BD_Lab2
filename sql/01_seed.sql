@@ -1,21 +1,17 @@
 -- =====================================================================
 -- Генерація тестових даних для бази bd_lab2 (схема як у Lab1)
--- Запуск: psql -U postgres -d bd_lab2 -f sql/01_seed.sql
---
 -- Обсяги:
 --   3 магазини, 18 відділів, 300 працівників
 --   36 категорій (6 основних + 30 підкатегорій), 5 000 товарів
 --   100 000 клієнтів
 --   300 000 замовлень, ~1 200 000 позицій замовлень (1..7 на замовлення)
---   період: 01.01.2025 - 31.10.2026
---
--- setseed() робить генерацію детермінованою: кожен запуск дає ті самі дані.
+--   період: 01.01.2025 - 31.10.2026.
 -- =====================================================================
 
 \timing on
 SELECT setseed(0.42);
 
--- Тригери складу з Lab1 (перевірка і списання залишків) для лаби вимикаємо:
+-- Тригери складу з першої лаби (перевірка і списання залишків) вимикаємо:
 -- порівнюємо саме зберігання/читання замовлень, а логіки складу в Mongo немає.
 ALTER TABLE "OrderItem" DISABLE TRIGGER trg_orderitem_validate;
 ALTER TABLE "OrderItem" DISABLE TRIGGER trg_orderitem_sale;
@@ -25,13 +21,11 @@ TRUNCATE "OrderItem", "Order", "Inventory", "Discount", "DeliveryItem", "Deliver
          "Position", "Department", "Store", "Customer"
 RESTART IDENTITY CASCADE;
 
--- ---------- Магазини та відділи ----------
 INSERT INTO "Store" ("Name", "Address") VALUES
   ('Мегамаркет Центр',   'м. Київ, вул. Хрещатик, 1'),
   ('Мегамаркет Лівобережний', 'м. Київ, просп. Броварський, 15'),
   ('Мегамаркет Львів',   'м. Львів, вул. Городоцька, 120');
 
--- 6 відділів у кожному магазині. Id відділу = (StoreId-1)*6 + номер відділу
 INSERT INTO "Department" ("StoreId", "Name", "Floor")
 SELECT s.id, d.name, d.floor
 FROM generate_series(1, 3) AS s(id)
@@ -45,7 +39,6 @@ INSERT INTO "Position" ("Title", "BaseSalary") VALUES
   ('Касир', 18000), ('Продавець-консультант', 20000), ('Старший касир', 23000),
   ('Завідувач відділу', 32000), ('Адміністратор', 40000);
 
--- ---------- Працівники ----------
 INSERT INTO "Employee" ("DepartmentId", "PositionId", "FirstName", "LastName")
 SELECT 1 + floor(random() * 18)::int,
        1 + floor(random() * 5)::int,
@@ -55,13 +48,10 @@ SELECT 1 + floor(random() * 18)::int,
               'Лисенко','Мороз','Савченко','Руденко','Гончаренко','Марченко','Петренко'])[1 + floor(random() * 15)::int]
 FROM generate_series(1, 300);
 
--- ---------- Категорії ----------
--- 6 основних категорій (Id 1..6 відповідають відділам)
 INSERT INTO "Category" ("Name", "ParentCategoryId") VALUES
   ('Продукти', NULL), ('Електроніка', NULL), ('Одяг', NULL),
   ('Побутова хімія', NULL), ('Дім і сад', NULL), ('Спорт', NULL);
 
--- по 5 підкатегорій (Id 7..36)
 INSERT INTO "Category" ("Name", "ParentCategoryId")
 SELECT sub.name, sub.parent
 FROM (VALUES
@@ -74,8 +64,6 @@ FROM (VALUES
 ) AS sub(name, parent, n)
 ORDER BY sub.parent, sub.n;
 
--- ---------- Товари ----------
--- Ціна залежить від основної категорії (продукти дешеві, електроніка дорога)
 INSERT INTO "Product" ("CategoryId", "Name", "Barcode", "SKU", "Price")
 SELECT cat_id,
        c."Name" || ' ' ||
@@ -94,14 +82,12 @@ SELECT cat_id,
 FROM (SELECT i, 7 + floor(random() * 30)::int AS cat_id FROM generate_series(1, 5000) AS i) AS g
 JOIN "Category" c ON c."Id" = g.cat_id;
 
--- ---------- Залишки: кожен товар у відповідному відділі кожного магазину ----------
 INSERT INTO "Inventory" ("ProductId", "DepartmentId", "QuantityAvailable")
 SELECT p."Id", (s.id - 1) * 6 + c."ParentCategoryId", floor(random() * 500)::int
 FROM "Product" p
 JOIN "Category" c ON c."Id" = p."CategoryId"
 CROSS JOIN generate_series(1, 3) AS s(id);
 
--- ---------- Клієнти ----------
 INSERT INTO "Customer" ("FirstName", "LastName", "Phone", "LoyaltyPoints")
 SELECT (ARRAY['Олена','Іван','Марія','Андрій','Наталія','Олег','Ірина','Петро','Тетяна','Сергій',
               'Юлія','Дмитро','Оксана','Василь','Анна','Максим','Катерина','Богдан','Світлана','Роман'])[1 + floor(random() * 20)::int],
@@ -111,8 +97,6 @@ SELECT (ARRAY['Олена','Іван','Марія','Андрій','Наталі�
        floor(random() * 5000)::int
 FROM generate_series(1, 100000) AS i;
 
--- ---------- Замовлення ----------
--- Дати зростають разом з Id (як у реальному житті) - це важливо для BRIN-індексу з Lab1.
 -- ~20% замовлень без клієнта (покупець без картки лояльності).
 INSERT INTO "Order" ("CustomerId", "EmployeeId", "OrderDate", "TotalAmount")
 SELECT CASE WHEN random() < 0.8 THEN 1 + floor(random() * 100000)::int END,

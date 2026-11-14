@@ -2,6 +2,9 @@
   <Folder Name="/Docs/">
     <File Path="README.md" />
     <File Path="results/results.md" />
+    <File Path="results/run1.md" />
+    <File Path="results/run2.md" />
+    <File Path="results/run3.md" />
   </Folder>
   <Folder Name="/mongo/">
     <File Path="mongo/queries.js" />

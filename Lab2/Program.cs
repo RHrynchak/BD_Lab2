@@ -3,12 +3,6 @@ using Microsoft.Extensions.Configuration;
 using MongoDB.Driver;
 using Npgsql;
 
-// Використання:
-//   dotnet run -c Release -- migrate   перенести замовлення з PostgreSQL у MongoDB
-//   dotnet run -c Release -- bench     запустити тести швидкодії
-//   dotnet run -c Release -- all       обидва кроки підряд
-
-// Українські літери (і, ї, є) у консолі Windows без цього показуються як "?"
 Console.OutputEncoding = System.Text.Encoding.UTF8;
 
 var config = new ConfigurationBuilder()

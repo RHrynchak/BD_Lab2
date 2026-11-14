@@ -1,19 +1,18 @@
 // =====================================================================
-// Neo4j: базові запити (пункт 6 лабораторної).
-// Виконувати по одному в Neo4j Browser: http://localhost:7474
+// Neo4j: базові запити
 // =====================================================================
 
 
 // ---------- 1. CRUD ----------
 
-// CREATE: новий клієнт
+// CREATE
 CREATE (c:Customer {id: 999999, name: 'Тестовий Клієнт', phone: '+380999999999'})
 RETURN c;
 
-// READ: знайти клієнта
+// READ
 MATCH (c:Customer {id: 999999}) RETURN c;
 
-// UPDATE: змінити телефон
+// UPDATE
 MATCH (c:Customer {id: 999999})
 SET c.phone = '+380111111111'
 RETURN c;
@@ -31,9 +30,10 @@ OPTIONAL MATCH (c)-[:PLACED]->(o:Order)
 DETACH DELETE c, o;
 
 
-// ---------- 2. Покупки клієнта (картинка графа в Browser) ----------
-MATCH (c:Customer {id: 2861})-[:PLACED]->(o:Order)-[:CONTAINS]->(p:Product)-[:IN_CATEGORY]->(cat:Category)
-RETURN c, o, p, cat;
+// ---------- 2. Покупки клієнта (картинка графа в браузері) ----------
+// Повертаємо шлях (path), а не окремі вузли - тоді браузер малює і зв'язки
+MATCH path = (c:Customer {id: 2861})-[:PLACED]->(:Order)-[:CONTAINS]->(:Product)-[:IN_CATEGORY]->(:Category)
+RETURN path;
 
 
 // ---------- 3. Топ-10 товарів за кількістю проданих одиниць ----------
@@ -45,7 +45,6 @@ LIMIT 10;
 
 // ---------- 4. "Разом з цим товаром купують" ----------
 // Товари, які найчастіше бувають в одному замовленні з товаром 100.
-// У SQL це self-join таблиці OrderItem; тут - просто шлях у графі.
 MATCH (p:Product {id: 100})<-[:CONTAINS]-(o:Order)-[:CONTAINS]->(other:Product)
 WHERE other <> p
 RETURN other.name AS product, count(o) AS together
@@ -77,12 +76,3 @@ MATCH path = shortestPath(
   (a:Customer {id: 2861})-[:PLACED|CONTAINS*..6]-(b:Customer {id: 500})
 )
 RETURN path;
-
-
-// ---------- 8. Найактивніші клієнти ----------
-// Групуємо за вузлом c (а не за c.name) - імена в різних клієнтів можуть збігатися
-MATCH (c:Customer)-[:PLACED]->(o:Order)
-WITH c, count(o) AS orders, round(sum(o.total), 2) AS spent
-RETURN c.id AS id, c.name AS customer, orders, spent
-ORDER BY spent DESC
-LIMIT 10;

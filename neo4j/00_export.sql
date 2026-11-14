@@ -1,7 +1,5 @@
 -- =====================================================================
 -- Експорт даних з PostgreSQL у CSV для завантаження в Neo4j.
--- Файли пишуться в папку import сервера Neo4j (звідти їх читає LOAD CSV).
--- Запуск: psql -U postgres -d bd_lab2 -f neo4j/00_export.sql
 -- =====================================================================
 
 \copy (SELECT "Id" AS id, "Name" AS name, "ParentCategoryId" AS parent_id FROM "Category") TO 'C:/neo4j/server/import/categories.csv' WITH (FORMAT csv, HEADER true, ENCODING 'UTF8')
